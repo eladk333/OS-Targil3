@@ -1,0 +1,13 @@
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 7: P1 Running Audio Engine Service.
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 7: P1 Running Audio Engine Service.
+7 → 11: P2 Running Scheduled Task Runner.

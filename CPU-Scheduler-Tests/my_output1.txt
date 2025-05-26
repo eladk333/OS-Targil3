@@ -1,0 +1,33 @@
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 3: P1 Running System Bootloader.
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 3: P1 Running System Bootloader.
+3 → 4: Idle.
+4 → 8: P3 Running Device Driver Loading.
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 3: P1 Running System Bootloader.
+3 → 4: Idle.
+4 → 8: P3 Running Device Driver Loading.
+8 → 9: P4 Running Network Services Startup.
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 3: P1 Running System Bootloader.
+3 → 4: Idle.
+4 → 8: P3 Running Device Driver Loading.
+8 → 9: P4 Running Network Services Startup.
+9 → 13: P2 Running Kernel Initialization.

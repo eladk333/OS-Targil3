@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 
 typedef struct {
@@ -89,6 +90,27 @@ int load_processes(const char *filename, Process processes[]){
 
     return count; // Returns number of Processes.
 }
+
+void simulate_run(Process *p, int duration){
+
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        // Child simulate running by sleeping.
+        sleep(duration);
+        exit(0); 
+    }
+    // If we in the parent process we wait for the child to finish.
+    else if (pid > 0) {
+        
+        p->pid = pid;
+        waitpid(pid, NULL, 0);
+    } else {
+        // The fork failed.
+        perror("fork");
+    }
+}
+
 
 // For sorting the Processes.
 int cmp_arrival(const void *a, const void *b) {
@@ -323,25 +345,6 @@ void schedule_rr(Process processes[], int count, int quantum){
 }
 
 
-void simulate_run(Process *p, int duration){
-
-    pid_t pid = fork();
-
-    if (pid == 0) {
-        // Child simulate running by sleeping.
-        sleep(duration);
-        exit(0); 
-    }
-    // If we in the parent process we wait for the child to finish.
-    else if (pid > 0) {
-        
-        p->pid = pid;
-        waitpid(pid, NULL, 0);
-    } else {
-        // The fork failed.
-        perror("fork");
-    }
-}
 
 
 

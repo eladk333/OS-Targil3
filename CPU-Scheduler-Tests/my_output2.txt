@@ -1,0 +1,13 @@
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 10: P1 Running User Login Service.
+
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 10: P1 Running User Login Service.
+10 → 11: P2 Running Graphical Session Initialization.
