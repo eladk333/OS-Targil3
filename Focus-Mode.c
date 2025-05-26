@@ -35,6 +35,7 @@ void setup_signal_handlers() {
     sigaction(SIG_DOORBELL, &sa, NULL);
 }
 
+// Blocks distraction during focus round.
 void block_distractions(sigset_t *old_mask) {
     sigset_t block_set;
     sigemptyset(&block_set);
@@ -44,10 +45,12 @@ void block_distractions(sigset_t *old_mask) {
     sigprocmask(SIG_BLOCK, &block_set, old_mask);
 }
 
+// Restore the previous sginal mask to unblock the distracftions.
 void unblock_distractions(sigset_t *old_mask) {
     sigprocmask(SIG_SETMASK, old_mask, NULL);
 }
 
+// After round ends prints the signals that we recevived.
 void handle_pending() {
     sigset_t pending;
     sigpending(&pending);
@@ -67,6 +70,7 @@ void handle_pending() {
         printf("[Outcome:] Food delivery is here.\n");
     }
 
+    // Resets signal flags for next round.
     email_received = reminder_received = doorbell_received = 0;
 }
 
@@ -75,6 +79,8 @@ void runFocusMode(int numOfRounds, int duration) {
     printf("Entering Focus Mode. All distractions are blocked.\n");
 
     for (int i = 1; i <= numOfRounds; i++) {
+
+        // Round started so we block all sginals.
         block_distractions(&old_mask);
 
         printf("══════════════════════════════════════════════\n");
@@ -89,8 +95,9 @@ void runFocusMode(int numOfRounds, int duration) {
             printf("  q = Quit\n>> ");
 
             char input[10];
-            fgets(input, sizeof(input), stdin);
+            fgets(input, sizeof(input), stdin); // Get's user input.
 
+            // Simulate sginal being sent based on the input.
             if (input[0] == '1') kill(getpid(), SIG_EMAIL);
             else if (input[0] == '2') kill(getpid(), SIG_REMINDER);
             else if (input[0] == '3') kill(getpid(), SIG_DOORBELL);
@@ -101,7 +108,10 @@ void runFocusMode(int numOfRounds, int duration) {
         printf("        Checking pending distractions...\n");
         printf("──────────────────────────────────────────────\n");
 
+        // Round ended so we unblock distractions.
         unblock_distractions(&old_mask);
+
+        // Handle the signals we got during the round.
         handle_pending();
 
         printf("──────────────────────────────────────────────\n");
