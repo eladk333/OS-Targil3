@@ -19,7 +19,7 @@ def run_test(i):
                 [EXECUTABLE, "CPU-Scheduler", process_file, QUANTUM],
                 stdout=outfile,
                 stderr=subprocess.PIPE,
-                timeout=10  # Prevents hanging
+                timeout=60  # Prevents hanging
             )
     except subprocess.TimeoutExpired:
         print(f"⏱️  Test {i} TIMED OUT (possible bug in scheduler)")

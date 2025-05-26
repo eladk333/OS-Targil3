@@ -1,13 +1,51 @@
-
 ══════════════════════════════════════════════
 >> Scheduler Mode : FCFS
 >> Engine Status  : Initialized
 ──────────────────────────────────────────────
 0 → 10: P1 Running User Login Service.
-
 ══════════════════════════════════════════════
 >> Scheduler Mode : FCFS
 >> Engine Status  : Initialized
 ──────────────────────────────────────────────
 0 → 10: P1 Running User Login Service.
 10 → 11: P2 Running Graphical Session Initialization.
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 10: P1 Running User Login Service.
+10 → 11: P2 Running Graphical Session Initialization.
+11 → 13: P3 Running Power Management Service.
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 10: P1 Running User Login Service.
+10 → 11: P2 Running Graphical Session Initialization.
+11 → 13: P3 Running Power Management Service.
+13 → 14: P4 Running System Update Daemon.
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 10: P1 Running User Login Service.
+10 → 11: P2 Running Graphical Session Initialization.
+11 → 13: P3 Running Power Management Service.
+13 → 14: P4 Running System Update Daemon.
+14 → 19: P5 Running Filesystem Mount Manager.
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 10: P1 Running User Login Service.
+10 → 11: P2 Running Graphical Session Initialization.
+11 → 13: P3 Running Power Management Service.
+13 → 14: P4 Running System Update Daemon.
+14 → 19: P5 Running Filesystem Mount Manager.
+──────────────────────────────────────────────
+>> Engine Status  : Completed
+>> Summary        :
+   └─ Average Waiting Time : 9.60 time units
+>> End of Report
+══════════════════════════════════════════════
+

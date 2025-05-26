@@ -19,11 +19,13 @@ typedef struct {
 }Process;
 
 void print_schedule_header(const char *algorithm){
-    printf("\n══════════════════════════════════════════════\n");
+    printf("══════════════════════════════════════════════\n");
     printf(">> Scheduler Mode : %s\n", algorithm);
     printf(">> Engine Status  : Initialized\n");
     printf("──────────────────────────────────────────────\n");
 }
+
+
 void print_schedule_entry(int start, int end, const Process *p){
     if (p) {
         printf("%d → %d: %s Running %s.\n", start, end, p->name, p->desc);
@@ -39,6 +41,16 @@ void print_summary(double avg_waiting_time){
     printf(">> End of Report\n");
     printf("══════════════════════════════════════════════\n\n");
 }
+void print_turnaround_summary(double total_time) {
+    printf("──────────────────────────────────────────────\n");
+    printf(">> Engine Status  : Completed\n");
+    printf(">> Summary        :\n");
+    printf("   └─ Total Turnaround Time : %.2f time units\n", total_time);
+    printf(">> End of Report\n");
+    printf("══════════════════════════════════════════════\n\n");
+}
+
+
 
 // Reads the CSV file and convert it into an array of Process structs.
 int load_processes(const char *filename, Process processes[]){
@@ -263,23 +275,23 @@ void schedule_priority(Process processes[], int count){
     print_summary(avg_waiting_time);
 }
 // Round Robin scheduling simulation.
-void schedule_rr(Process processes[], int count, int quantum){
+void schedule_rr(Process processes[], int count, int quantum) {
 
-    print_schedule_header("Round Robin");  
+    print_schedule_header("Round Robin");
 
-    int current_time = 0; // To track the simulation time.                  
-    int completed = 0;    // Counts how many processes finished.                 
-    double total_turnaround_time = 0;      // Total time the processes ran.
-    int idle;       // Flag if CPU was idle or not.                      
+    int current_time = 0;  // To track the simulation time.  
+    int completed = 0;      // Counts how many processes finished. 
+    int finish_time[1000] = {0}; // Tracks when each process ends
+    double total_waiting_time = 0;  // Total waiting time of all the processes.
+    int idle;                   // Flag if CPU was idle or not.
 
     // Runs the processes till they are all done.
     while (completed < count) {
-
+        
         idle = 1;  // CPU is idle until we find a process to run.
 
         // Loops over every process.
         for (int i = 0; i < count; i++) {
-
             Process *p = &processes[i];
 
             // If a process not arived yet or already finished.
@@ -299,37 +311,21 @@ void schedule_rr(Process processes[], int count, int quantum){
             int start_time = current_time;
             int end_time = start_time + run_time;
 
-            print_schedule_entry(start_time, end_time, p);  
-
-            // If it's the first time the process runs.
-            if (p->pid == 0) {
-                pid_t pid = fork();
-
-                // If it's the child    
-                if (pid == 0) {
-                    pause();            // We pause till we get SIGCONT from the parent.  
-                    sleep(run_time);    // We simulate the execution of the slice.  
-                    exit(0);            // Exit after we finished.  
-                } else { // We parent
-                    p->pid = pid;         // We save the PID of the child in our process struct.
-                    kill(pid, SIGSTOP);   // We stop the child so it won't run yet.
-                }
-            }
-
+            print_schedule_entry(start_time, end_time, p);
             
-            kill(p->pid, SIGCONT);   // Resume the child process.
-            sleep(run_time);         // We simulate the execution of the slice.
-            kill(p->pid, SIGSTOP);   // Pause it again after time is up.     
+            // Simulate running.
+           // sleep(run_time);
 
-            // Update remaining time and current time.
+            // Updates the process remaming time to run.
             p->remaining_time -= run_time;
-            current_time += run_time;
 
-            // If the prcoess finished now.
+            // Updates the current time.
+            current_time += run_time;
+            
+            // If the process finished.
             if (p->remaining_time <= 0) {
-                waitpid(p->pid, NULL, 0);  // Wait for child to exit.                    
-                total_turnaround_time += current_time - p->arrival_time;  // Calculate how much time the process ran.
-                completed++;                                          
+                finish_time[i] = current_time; // We save the finish time.
+                completed++;                    // Updates the number of finished processes.
             }
         }
 
@@ -340,9 +336,17 @@ void schedule_rr(Process processes[], int count, int quantum){
         }
     }
 
-    // Print the total time the processes ran.
-    print_summary(total_turnaround_time);
+    // Calculate total waiting time.
+    for (int i = 0; i < count; i++) {
+        int waiting = finish_time[i] - processes[i].arrival_time - processes[i].burst_time;
+        total_waiting_time += waiting;
+    }
+    // Caculate and print avg waiting time.
+    double avg_waiting_time = total_waiting_time / count;
+    print_turnaround_summary(current_time);
+
 }
+
 
 
 
@@ -369,7 +373,7 @@ void runCPUScheduler(char* processesCsvFilePath, int timeQuantum) {
 
     // Run each scheduling simulation.
     schedule_fcfs(fcfs_list, count);
-    schedule_sjf(sjf_list, count);
-    schedule_priority(prio_list, count);
-    schedule_rr(rr_list, count, timeQuantum);
+   // schedule_sjf(sjf_list, count);
+  //  schedule_priority(prio_list, count);
+   // schedule_rr(rr_list, count, timeQuantum);
 }

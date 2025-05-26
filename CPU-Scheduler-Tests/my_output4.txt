@@ -1,13 +1,41 @@
-
 ══════════════════════════════════════════════
 >> Scheduler Mode : FCFS
 >> Engine Status  : Initialized
 ──────────────────────────────────────────────
 0 → 7: P1 Running Audio Engine Service.
-
 ══════════════════════════════════════════════
 >> Scheduler Mode : FCFS
 >> Engine Status  : Initialized
 ──────────────────────────────────────────────
 0 → 7: P1 Running Audio Engine Service.
 7 → 11: P2 Running Scheduled Task Runner.
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 7: P1 Running Audio Engine Service.
+7 → 11: P2 Running Scheduled Task Runner.
+11 → 12: P3 Running Disk Cleanup Utility.
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 7: P1 Running Audio Engine Service.
+7 → 11: P2 Running Scheduled Task Runner.
+11 → 12: P3 Running Disk Cleanup Utility.
+12 → 16: P4 Running Clipboard Monitoring Service.
+══════════════════════════════════════════════
+>> Scheduler Mode : FCFS
+>> Engine Status  : Initialized
+──────────────────────────────────────────────
+0 → 7: P1 Running Audio Engine Service.
+7 → 11: P2 Running Scheduled Task Runner.
+11 → 12: P3 Running Disk Cleanup Utility.
+12 → 16: P4 Running Clipboard Monitoring Service.
+──────────────────────────────────────────────
+>> Engine Status  : Completed
+>> Summary        :
+   └─ Average Waiting Time : 4.75 time units
+>> End of Report
+══════════════════════════════════════════════
+
