@@ -170,7 +170,7 @@ void schedule_fcfs(Process processes[], int count){
     // Calculate and print the avg waiting time.
     double avg_waiting_time = total_waiting_time / count;
     print_summary(avg_waiting_time);
-
+    printf("\n");
 }
 
 // SJF scheduling simulation.
@@ -223,6 +223,7 @@ void schedule_sjf(Process processes[], int count){
     // Calculate and print avg waiting time.
     double avg_waiting_time = total_waiting_time / count;
     print_summary(avg_waiting_time);
+    printf("\n");
 }
 
 // Priority scheduling simulation.
@@ -273,6 +274,7 @@ void schedule_priority(Process processes[], int count){
     // Calculate and print avg waiting time.
     double avg_waiting_time = total_waiting_time / count;
     print_summary(avg_waiting_time);
+    printf("\n");
 }
 // Round Robin scheduling simulation.
 void schedule_rr(Process processes[], int count, int quantum) {
@@ -284,6 +286,9 @@ void schedule_rr(Process processes[], int count, int quantum) {
     int finish_time[1000] = {0}; // Tracks when each process ends
     double total_waiting_time = 0;  // Total waiting time of all the processes.
     int idle;                   // Flag if CPU was idle or not.
+
+    // Sorts by arrival time.
+     qsort(processes, count, sizeof(Process), cmp_arrival);
 
     // Runs the processes till they are all done.
     while (completed < count) {
@@ -314,7 +319,7 @@ void schedule_rr(Process processes[], int count, int quantum) {
             print_schedule_entry(start_time, end_time, p);
             
             // Simulate running.
-           // sleep(run_time);
+            sleep(run_time);
 
             // Updates the process remaming time to run.
             p->remaining_time -= run_time;
@@ -344,6 +349,7 @@ void schedule_rr(Process processes[], int count, int quantum) {
     // Caculate and print avg waiting time.
     double avg_waiting_time = total_waiting_time / count;
     print_turnaround_summary(current_time);
+    printf("\n");
 
 }
 
@@ -373,7 +379,7 @@ void runCPUScheduler(char* processesCsvFilePath, int timeQuantum) {
 
     // Run each scheduling simulation.
     schedule_fcfs(fcfs_list, count);
-   // schedule_sjf(sjf_list, count);
-  //  schedule_priority(prio_list, count);
-   // schedule_rr(rr_list, count, timeQuantum);
+    schedule_sjf(sjf_list, count);
+    schedule_priority(prio_list, count);
+    schedule_rr(rr_list, count, timeQuantum);
 }

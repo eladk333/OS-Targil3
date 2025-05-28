@@ -14,7 +14,6 @@ volatile sig_atomic_t email_received = 0;
 volatile sig_atomic_t reminder_received = 0;
 volatile sig_atomic_t doorbell_received = 0;
 
-// To handle each signal.
 void handle_signal(int signum) {
     if (signum == SIG_EMAIL)
         email_received = 1;
@@ -35,7 +34,6 @@ void setup_signal_handlers() {
     sigaction(SIG_DOORBELL, &sa, NULL);
 }
 
-// Blocks distraction during focus round.
 void block_distractions(sigset_t *old_mask) {
     sigset_t block_set;
     sigemptyset(&block_set);
@@ -45,81 +43,88 @@ void block_distractions(sigset_t *old_mask) {
     sigprocmask(SIG_BLOCK, &block_set, old_mask);
 }
 
-// Restore the previous sginal mask to unblock the distracftions.
 void unblock_distractions(sigset_t *old_mask) {
     sigprocmask(SIG_SETMASK, old_mask, NULL);
 }
 
-// After round ends prints the signals that we recevived.
 void handle_pending() {
     sigset_t pending;
     sigpending(&pending);
 
+    int no_distractions = 1;
+
     if (sigismember(&pending, SIG_EMAIL) || email_received) {
         printf(" - Email notification is waiting.\n");
         printf("[Outcome:] The TA announced: Everyone get 100 on the exercise!\n");
+        no_distractions = 0;
     }
 
     if (sigismember(&pending, SIG_REMINDER) || reminder_received) {
         printf(" - You have a reminder to pick up your delivery.\n");
         printf("[Outcome:] You picked it up just in time.\n");
+        no_distractions = 0;
     }
 
     if (sigismember(&pending, SIG_DOORBELL) || doorbell_received) {
         printf(" - The doorbell is ringing.\n");
         printf("[Outcome:] Food delivery is here.\n");
+        no_distractions = 0;
     }
 
-    // Resets signal flags for next round.
+    if (no_distractions) {
+        printf("No distractions reached you this round.\n");
+    }
+
     email_received = reminder_received = doorbell_received = 0;
 }
 
 void runFocusMode(int numOfRounds, int duration) {
+    setup_signal_handlers();
     sigset_t old_mask;
+
     printf("Entering Focus Mode. All distractions are blocked.\n");
 
     for (int i = 1; i <= numOfRounds; i++) {
-
-        // Round started so we block all sginals.
         block_distractions(&old_mask);
 
         printf("══════════════════════════════════════════════\n");
         printf("                Focus Round %d                \n", i);
         printf("──────────────────────────────────────────────\n");
 
-        for (int i = 0; i < duration; i++) {
-            printf("Simulate a distraction:\n");
+        for (int j = 0; j < duration; j++) {
+            printf("\nSimulate a distraction:\n");
             printf("  1 = Email notification\n");
             printf("  2 = Reminder to pick up delivery\n");
             printf("  3 = Doorbell Ringing\n");
             printf("  q = Quit\n>> ");
+            fflush(stdout);
 
             char input[10];
-            fgets(input, sizeof(input), stdin); // Get's user input.
+            if (!fgets(input, sizeof(input), stdin))
+                break;
 
-            // Simulate sginal being sent based on the input.
-            if (input[0] == '1') kill(getpid(), SIG_EMAIL);
-            else if (input[0] == '2') kill(getpid(), SIG_REMINDER);
-            else if (input[0] == '3') kill(getpid(), SIG_DOORBELL);
-            else if (input[0] == 'q') break;
+            if (input[0] == '1')
+                kill(getpid(), SIG_EMAIL);
+            else if (input[0] == '2')
+                kill(getpid(), SIG_REMINDER);
+            else if (input[0] == '3')
+                kill(getpid(), SIG_DOORBELL);
+            else if (input[0] == 'q')
+                break;
         }
 
         printf("──────────────────────────────────────────────\n");
-        printf("        Checking pending distractions...\n");
+        printf("        Checking pending distractions...      \n");
         printf("──────────────────────────────────────────────\n");
 
-        // Round ended so we unblock distractions.
         unblock_distractions(&old_mask);
-
-        // Handle the signals we got during the round.
         handle_pending();
 
         printf("──────────────────────────────────────────────\n");
-        printf("             Back to Focus Mode.\n");
+        printf("             Back to Focus Mode.              \n"); 
+        printf("══════════════════════════════════════════════\n");
     }
 
-    printf("══════════════════════════════════════════════\n");
-    printf("Focus Mode complete. All distractions are now unblocked.\n");
+    
+    printf("\nFocus Mode complete. All distractions are now unblocked.\n");
 }
-
-
