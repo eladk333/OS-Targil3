@@ -1,28 +1,6 @@
 --- expected
 +++ actual
-@@ -26,7 +26,9 @@
- 1 → 2: P1 Running Device Driver Loading.
- 2 → 4: P2 Running Kernel Initialization.
- 4 → 7: P3 Running System Bootloader.
--7 → 10: Idle.
-+7 → 8: Idle.
-+8 → 9: Idle.
-+9 → 10: Idle.
- 10 → 20: P4 Running Network Services Startup.
- 
- ──────────────────────────────────────────────
-@@ -45,7 +47,9 @@
- 1 → 2: P1 Running Device Driver Loading.
- 2 → 4: P2 Running Kernel Initialization.
- 4 → 7: P3 Running System Bootloader.
--7 → 10: Idle.
-+7 → 8: Idle.
-+8 → 9: Idle.
-+9 → 10: Idle.
- 10 → 20: P4 Running Network Services Startup.
- 
- ──────────────────────────────────────────────
-@@ -63,12 +67,16 @@
+@@ -63,12 +63,16 @@
  0 → 1: Idle.
  1 → 2: P1 Running Device Driver Loading.
  2 → 4: P2 Running Kernel Initialization.

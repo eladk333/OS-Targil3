@@ -5,8 +5,11 @@
 #include <string.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <limits.h>
+
 #include <sys/wait.h>
 
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 typedef struct {
     char name[50];
@@ -202,9 +205,18 @@ void schedule_sjf(Process processes[], int count){
 
         // If no process had arrived yet.
         if (shortest_index == -1) {
-            print_schedule_entry(current_time, current_time + 1, NULL);
-            current_time++;
-        } else {
+            int next_arrival = INT_MAX;
+            // Looking for the process that is the most soon to arrive and isn't done or arrived yet.
+            for (int i = 0; i < count; i++) {
+                if (!done[i] && processes[i].arrival_time > current_time) {
+                    next_arrival = MIN(next_arrival, processes[i].arrival_time);
+                }
+            }
+            print_schedule_entry(current_time, next_arrival, NULL);
+            // Update the time for the next process.
+            current_time = next_arrival;
+        }
+        else {
             // We got a process to run.
             Process *p = &processes[shortest_index];
 
@@ -253,9 +265,21 @@ void schedule_priority(Process processes[], int count){
         
         // If not process is ready yet.
         if (best_index == -1) {
-            print_schedule_entry(current_time, current_time + 1, NULL);
-            current_time++;
-        } else {
+            int next_arrival = INT_MAX;
+
+            // Looking for the closest arrival among the unfinished processes.
+            for (int i = 0; i < count; i++) {
+                if (!done[i] && processes[i].arrival_time > current_time) {
+                    next_arrival = MIN(next_arrival, processes[i].arrival_time);
+                }
+            }
+            print_schedule_entry(current_time, next_arrival, NULL);
+
+            // Update time to the next process.
+            current_time = next_arrival;
+    
+        }
+        else {
             Process *p = &processes[best_index];
 
             int start_time = current_time;
@@ -280,79 +304,59 @@ void schedule_priority(Process processes[], int count){
 }
 // Round Robin scheduling simulation.
 void schedule_rr(Process processes[], int count, int quantum) {
-
     print_schedule_header("Round Robin");
 
-    int current_time = 0;  // To track the simulation time.  
-    int completed = 0;      // Counts how many processes finished. 
-    int finish_time[1000] = {0}; // Tracks when each process ends
-    double total_waiting_time = 0;  // Total waiting time of all the processes.
-    int idle;                   // Flag if CPU was idle or not.
+    int current_time = 0;  // Tracks current simulation time
+    int completed = 0;     // Number of finished processes
+    int finish_time[1000] = {0}; // When each process finished
+    double total_waiting_time = 0;
+    int idle;
 
-    // Sorts by arrival time.
-     qsort(processes, count, sizeof(Process), cmp_arrival);
+    qsort(processes, count, sizeof(Process), cmp_arrival);
 
-    // Runs the processes till they are all done.
     while (completed < count) {
-        
-        idle = 1;  // CPU is idle until we find a process to run.
+        idle = 1; // Assume idle unless a process runs
 
-        // Loops over every process.
         for (int i = 0; i < count; i++) {
             Process *p = &processes[i];
 
-            // If a process not arived yet or already finished.
+            // Skip if not arrived or already done
             if (p->arrival_time > current_time || p->remaining_time <= 0)
                 continue;
 
-            idle = 0;  // We found a process so not idle.
+            idle = 0;
 
-            // Calcuate how much we let the process run.
-            int run_time;
-            if (p->remaining_time > quantum) {
-                run_time = quantum;
-            } else {
-                run_time = p->remaining_time;
-            }
-
+            // Use macro to determine how much time to run
+            int run_time = MIN(quantum, p->remaining_time);
             int start_time = current_time;
             int end_time = start_time + run_time;
 
             print_schedule_entry(start_time, end_time, p);
-            
-            // Simulate running.
-           //sleep(run_time);
+            simulate_run(p, run_time);
 
-            // Updates the process remaming time to run.
             p->remaining_time -= run_time;
-
-            // Updates the current time.
             current_time += run_time;
-            
-            // If the process finished.
+
             if (p->remaining_time <= 0) {
-                finish_time[i] = current_time; // We save the finish time.
-                completed++;                    // Updates the number of finished processes.
+                finish_time[i] = current_time;
+                completed++;
             }
         }
 
-        // If no process ran in this round.
         if (idle) {
-            print_schedule_entry(current_time, current_time + 1, NULL); // Print idle.
-            current_time++;     // Updates the time.
+            print_schedule_entry(current_time, current_time + 1, NULL);
+            current_time++;
         }
     }
 
-    // Calculate total waiting time.
     for (int i = 0; i < count; i++) {
         int waiting = finish_time[i] - processes[i].arrival_time - processes[i].burst_time;
         total_waiting_time += waiting;
     }
-    // Caculate and print avg waiting time.
+
     double avg_waiting_time = total_waiting_time / count;
     print_turnaround_summary(current_time);
     printf("\n");
-
 }
 
 
