@@ -1,0 +1,13 @@
+--- expected
++++ actual
+@@ -74,3 +74,10 @@
+ >> End of Report
+ ══════════════════════════════════════════════
+ 
++──────────────────────────────────────────────
++>> Engine Status  : Completed
++>> Summary        :
++   └─ Average Waiting Time : 2.25 time units
++>> End of Report
++══════════════════════════════════════════════
++

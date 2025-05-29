@@ -22,7 +22,7 @@ void print_schedule_header(const char *algorithm){
     printf("══════════════════════════════════════════════\n");
     printf(">> Scheduler Mode : %s\n", algorithm);
     printf(">> Engine Status  : Initialized\n");
-    printf("──────────────────────────────────────────────\n");
+    printf("──────────────────────────────────────────────\n\n");
 }
 
 
@@ -34,20 +34,20 @@ void print_schedule_entry(int start, int end, const Process *p){
     }
 }
 void print_summary(double avg_waiting_time){
-    printf("──────────────────────────────────────────────\n");
+    printf("\n──────────────────────────────────────────────\n");
     printf(">> Engine Status  : Completed\n");
     printf(">> Summary        :\n");
     printf("   └─ Average Waiting Time : %.2f time units\n", avg_waiting_time);
     printf(">> End of Report\n");
-    printf("══════════════════════════════════════════════\n\n");
+    printf("══════════════════════════════════════════════\n");
 }
 void print_turnaround_summary(double total_time) {
-    printf("──────────────────────────────────────────────\n");
+    printf("\n──────────────────────────────────────────────\n");
     printf(">> Engine Status  : Completed\n");
     printf(">> Summary        :\n");
-    printf("   └─ Total Turnaround Time : %.2f time units\n", total_time);
+    printf("   └─ Total Turnaround Time : %.0f time units\n\n", total_time);
     printf(">> End of Report\n");
-    printf("══════════════════════════════════════════════\n\n");
+    printf("══════════════════════════════════════════════\n");
 }
 
 
@@ -109,8 +109,8 @@ void simulate_run(Process *p, int duration){
 
     if (pid == 0) {
         // Child simulate running by sleeping.
-        sleep(duration);
-        exit(0); 
+      // sleep(duration);
+        _exit(0); 
     }
     // If we in the parent process we wait for the child to finish.
     else if (pid > 0) {
@@ -192,9 +192,11 @@ void schedule_sjf(Process processes[], int count){
         for (int i = 0; i < count; i++) {
             if (!done[i] && processes[i].arrival_time <= current_time) {
                 if (shortest_index == -1 || 
-                    processes[i].burst_time < processes[shortest_index].burst_time) {
+                    processes[i].burst_time < processes[shortest_index].burst_time || 
+                    (processes[i].burst_time == processes[shortest_index].burst_time &&
+                    processes[i].arrival_time < processes[shortest_index].arrival_time)) {
                     shortest_index = i;
-                }
+}
             }
         }
 
@@ -319,7 +321,7 @@ void schedule_rr(Process processes[], int count, int quantum) {
             print_schedule_entry(start_time, end_time, p);
             
             // Simulate running.
-            sleep(run_time);
+           //sleep(run_time);
 
             // Updates the process remaming time to run.
             p->remaining_time -= run_time;
