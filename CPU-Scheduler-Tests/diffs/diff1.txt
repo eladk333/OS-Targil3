@@ -1,34 +1,17 @@
 --- expected
 +++ actual
-@@ -40,15 +40,26 @@
- ──────────────────────────────────────────────
- 
- 0 → 3: P1 Running System Bootloader.
--3 → 4: Idle.
--4 → 8: P3 Running Device Driver Loading.
--8 → 9: P4 Running Network Services Startup.
--9 → 13: P2 Running Kernel Initialization.
-+3 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → -2147483645: P3 Running Device Driver Loading.
-+-2147483645 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → -2147483648: P4 Running Network Services Startup.
-+-2147483648 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → 2147483647: Idle.
-+2147483647 → -2147483645: P2 Running Kernel Initialization.
+@@ -61,10 +61,10 @@
+ 2 → 3: P1 Running System Bootloader.
+ 3 → 4: Idle.
+ 4 → 6: P3 Running Device Driver Loading.
+-6 → 7: P4 Running Network Services Startup.
+-7 → 9: P2 Running Kernel Initialization.
+-9 → 11: P3 Running Device Driver Loading.
+-11 → 13: P2 Running Kernel Initialization.
++6 → 8: P4 Running Network Services Startup.
++8 → 10: P3 Running Device Driver Loading.
++10 → 11: P2 Running Kernel Initialization.
++11 → 13: P4 Running Network Services Startup.
  
  ──────────────────────────────────────────────
  >> Engine Status  : Completed
- >> Summary        :
--   └─ Average Waiting Time : 2.00 time units
-+   └─ Average Waiting Time : 1610612732.00 time units
- >> End of Report
- ══════════════════════════════════════════════
- 
