@@ -21,6 +21,27 @@ typedef struct {
     int remaining_time; 
 }Process;
 
+typedef struct {
+    int index;
+}QueueItem;
+
+typedef struct {
+    QueueItem items[1000];
+    int front, rear;
+}Queue;
+
+void enqueue(Queue *q, int index) {
+    q->items[q->rear++] = (QueueItem){index};
+}
+
+int dequeue(Queue *q) {
+    return q->items[q->front++].index;
+}
+
+int is_empty(Queue *q) {
+    return q->front == q->rear;
+}
+
 void print_schedule_header(const char *algorithm){
     printf("══════════════════════════════════════════════\n");
     printf(">> Scheduler Mode : %s\n", algorithm);
@@ -304,91 +325,87 @@ void schedule_priority(Process processes[], int count){
 }
 // Round Robin scheduling simulation.
 void schedule_rr(Process processes[], int count, int quantum) {
-
     print_schedule_header("Round Robin");
 
-    int current_time = 0;  // To track the simulation time.  
-    int completed = 0;      // Counts how many processes finished. 
-    int finish_time[1000] = {0}; // Tracks when each process ends
-    double total_waiting_time = 0;  // Total waiting time of all the processes.
-    int idle;                   // Flag if CPU was idle or not.
+    int current_time = 0;
+    int completed = 0;
+    int finish_time[1000] = {0};
+    int in_queue[1000] = {0};
 
-    // Sorts by arrival time.
-     qsort(processes, count, sizeof(Process), cmp_arrival);
+    Queue q = { .front = 0, .rear = 0 };
+    qsort(processes, count, sizeof(Process), cmp_arrival);
 
-    // Runs the processes till they are all done.
+    int next_arrival = 0;
+
+    // Initial enqueue
+    while (next_arrival < count && processes[next_arrival].arrival_time <= current_time) {
+        enqueue(&q, next_arrival);
+        in_queue[next_arrival] = 1;
+        next_arrival++;
+    }
+
     while (completed < count) {
+        if (is_empty(&q)) {
+            int next_time = processes[next_arrival].arrival_time;
+            print_schedule_entry(current_time, next_time, NULL);
+            current_time = next_time;
 
-        idle = 1;  // CPU is idle until we find a process to run.
-
-        // Loops over every process.
-        for (int i = 0; i < count; i++) {
-            Process *p = &processes[i];
-
-            // If a process not arived yet or already finished.
-            if (p->arrival_time > current_time || p->remaining_time <= 0)
-                continue;
-
-            idle = 0;  // We found a process so not idle.
-
-            // Calcuate how much we let the process run.
-            int run_time;
-            if (p->remaining_time > quantum) {
-                run_time = quantum;
-            } else {
-                run_time = p->remaining_time;
+            while (next_arrival < count && processes[next_arrival].arrival_time <= current_time) {
+                enqueue(&q, next_arrival);
+                in_queue[next_arrival] = 1;
+                next_arrival++;
             }
+            continue;
+        }
 
-            int start_time = current_time;
-            int end_time = start_time + run_time;
+        int i = dequeue(&q);
+        Process *p = &processes[i];
 
-            print_schedule_entry(start_time, end_time, p);
+        int run_time = MIN(quantum, p->remaining_time);
+        int start_time = current_time;
+        int end_time = start_time + run_time;
 
-            // Simulate running.
-           // sleep(run_time);
-           
+        print_schedule_entry(start_time, end_time, p);
+        simulate_run(p, run_time);
 
-            // Updates the process remaming time to run.
-            p->remaining_time -= run_time;
+        
+        for (int t = 0; t < run_time; t++) {
+            current_time++;
 
-            // Updates the current time.
-            current_time += run_time;
-
-            // If the process finished.
-            if (p->remaining_time <= 0) {
-                finish_time[i] = current_time; // We save the finish time.
-                completed++;                    // Updates the number of finished processes.
+            while (next_arrival < count && processes[next_arrival].arrival_time == current_time) {
+                enqueue(&q, next_arrival);
+                in_queue[next_arrival] = 1;
+                next_arrival++;
             }
         }
 
-        // If no process ran in this round.
-        if (idle) {
-            print_schedule_entry(current_time, current_time + 1, NULL); // Print idle.
-            current_time++;     // Updates the time.
+       
+        p->remaining_time -= run_time;
+        if (p->remaining_time > 0) {
+            enqueue(&q, i);
+        } else {
+            finish_time[i] = current_time;
+            completed++;
         }
     }
 
-    // Calculate total waiting time.
+    
+    double total_waiting_time = 0;
     for (int i = 0; i < count; i++) {
-        int waiting = finish_time[i] - processes[i].arrival_time - processes[i].burst_time;
-        total_waiting_time += waiting;
+        int wait = finish_time[i] - processes[i].arrival_time - processes[i].burst_time;
+        total_waiting_time += wait;
     }
-    // Caculate and print avg waiting time.
-    double avg_waiting_time = total_waiting_time / count;
+
     print_turnaround_summary(current_time);
     printf("\n");
-
 }
-
-
-
 
 
 
 void runCPUScheduler(char* processesCsvFilePath, int timeQuantum) {
 
     Process processes[1000];
-
+    //printf("Time Quantum: %d\n", timeQuantum);
     int count = load_processes(processesCsvFilePath, processes);
     if (count <= 0) {
         fprintf(stderr, "Error: Failed to load processes from file: %s\n", processesCsvFilePath);
