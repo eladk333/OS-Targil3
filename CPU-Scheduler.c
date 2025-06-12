@@ -78,7 +78,7 @@ void print_turnaround_summary(double total_time) {
     printf(">> Summary        :\n");
     printf("   └─ Total Turnaround Time : %.0f time units\n\n", total_time);
     printf(">> End of Report\n");
-    printf("══════════════════════════════════════════════\n");
+    printf("══════════════════════════════════════════════");
 }
 
 
@@ -402,8 +402,9 @@ void schedule_rr(Process processes[], int count, int quantum) {
             }
         }
 
+        // Only after enqueuing new arrivals, re-queue the current process if not finished
         if (remaining[idx] > 0) {
-            queue[rear++] = idx; // Not finished, requeue
+            queue[rear++] = idx;
         } else {
             completed++;
             finish_time[idx] = end;
@@ -417,8 +418,6 @@ void schedule_rr(Process processes[], int count, int quantum) {
             last_finish = finish_time[i];
     }
     print_turnaround_summary((double)last_finish);
-    printf("\n");
-
 }
 
 
