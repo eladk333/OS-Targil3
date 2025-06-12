@@ -23,11 +23,13 @@ typedef struct {
 
 typedef struct {
     int index;
-}QueueItem;
+    int arrival_order;
+} QueueItem;
+
 
 typedef struct {
     QueueItem items[1000];
-    int front, rear;
+    int front, rear, count;
 }Queue;
 
 void enqueue(Queue *q, int index) {
@@ -41,6 +43,11 @@ int dequeue(Queue *q) {
 int is_empty(Queue *q) {
     return q->front == q->rear;
 }
+
+void ignoreSignal(int signum){
+    signal(signum, ignoreSignal);
+}
+
 
 void print_schedule_header(const char *algorithm){
     printf("══════════════════════════════════════════════\n");
@@ -128,21 +135,19 @@ int load_processes(const char *filename, Process processes[]){
 }
 
 void simulate_run(Process *p, int duration){
-
     pid_t pid = fork();
 
     if (pid == 0) {
-        // Child simulate running by sleeping.
-       //sleep(duration);
-        _exit(0); 
+        signal(SIGCONT, SIG_DFL);
+        signal(SIGTSTP, SIG_DFL);
+        signal(SIGTERM, SIG_DFL);
+        pause();  // Start paused
+        // (1) {}  // Infinite loop simulating "running"
     }
-    // If we in the parent process we wait for the child to finish.
     else if (pid > 0) {
-        
         p->pid = pid;
-        waitpid(pid, NULL, 0);
+        kill(pid, SIGSTOP);  // Immediately stop the child until scheduled
     } else {
-        // The fork failed.
         perror("fork");
     }
 }
@@ -324,82 +329,97 @@ void schedule_priority(Process processes[], int count){
     printf("\n");
 }
 // Round Robin scheduling simulation.
+
 void schedule_rr(Process processes[], int count, int quantum) {
     print_schedule_header("Round Robin");
 
-    int current_time = 0;
+    int time = 0;
     int completed = 0;
+    int remaining[1000];
+    int arrived[1000] = {0};
+    int queue[1000], front = 0, rear = 0;
     int finish_time[1000] = {0};
-    int in_queue[1000] = {0};
 
-    Queue q = { .front = 0, .rear = 0 };
-    qsort(processes, count, sizeof(Process), cmp_arrival);
+    for (int i = 0; i < count; i++) {
+        remaining[i] = processes[i].burst_time;
+    }
 
-    int next_arrival = 0;
-
-    // Initial enqueue
-    while (next_arrival < count && processes[next_arrival].arrival_time <= current_time) {
-        enqueue(&q, next_arrival);
-        in_queue[next_arrival] = 1;
-        next_arrival++;
+    // Enqueue all processes that have arrived at time 0
+    for (int i = 0; i < count; i++) {
+        if (processes[i].arrival_time == 0) {
+            queue[rear++] = i;
+            arrived[i] = 1;
+        }
     }
 
     while (completed < count) {
-        if (is_empty(&q)) {
-            int next_time = processes[next_arrival].arrival_time;
-            print_schedule_entry(current_time, next_time, NULL);
-            current_time = next_time;
-
-            while (next_arrival < count && processes[next_arrival].arrival_time <= current_time) {
-                enqueue(&q, next_arrival);
-                in_queue[next_arrival] = 1;
-                next_arrival++;
+        // If queue is empty, jump to next arrival
+        if (front == rear) {
+            int next_arrival_time = -1;
+            for (int i = 0; i < count; i++) {
+                if (!arrived[i]) {
+                    if (next_arrival_time == -1 || processes[i].arrival_time < next_arrival_time)
+                        next_arrival_time = processes[i].arrival_time;
+                }
+            }
+            if (next_arrival_time != -1 && next_arrival_time > time) {
+                print_schedule_entry(time, next_arrival_time, NULL);
+                time = next_arrival_time;
+                // Enqueue all processes that arrive at this time
+                for (int i = 0; i < count; i++) {
+                    if (!arrived[i] && processes[i].arrival_time == time) {
+                        queue[rear++] = i;
+                        arrived[i] = 1;
+                    }
+                }
             }
             continue;
         }
 
-        int i = dequeue(&q);
-        Process *p = &processes[i];
+        int idx = queue[front++];
+        Process *p = &processes[idx];
 
-        int run_time = MIN(quantum, p->remaining_time);
-        int start_time = current_time;
-        int end_time = start_time + run_time;
+        // If the process arrives after the current time, CPU should be idle
+        if (p->arrival_time > time) {
+            print_schedule_entry(time, p->arrival_time, NULL);
+            time = p->arrival_time;
+        }
 
-        print_schedule_entry(start_time, end_time, p);
-        simulate_run(p, run_time);
+        int slice = (remaining[idx] < quantum) ? remaining[idx] : quantum;
+        int start = time;
+        int end = time + slice;
 
-        
-        for (int t = 0; t < run_time; t++) {
-            current_time++;
+        print_schedule_entry(start, end, p);
 
-            while (next_arrival < count && processes[next_arrival].arrival_time == current_time) {
-                enqueue(&q, next_arrival);
-                in_queue[next_arrival] = 1;
-                next_arrival++;
+        time = end;
+        remaining[idx] -= slice;
+
+        // Enqueue any new arrivals during this time slice, in arrival order
+        for (int i = 0; i < count; i++) {
+            if (!arrived[i] && processes[i].arrival_time > start && processes[i].arrival_time <= end) {
+                queue[rear++] = i;
+                arrived[i] = 1;
             }
         }
 
-       
-        p->remaining_time -= run_time;
-        if (p->remaining_time > 0) {
-            enqueue(&q, i);
+        if (remaining[idx] > 0) {
+            queue[rear++] = idx; // Not finished, requeue
         } else {
-            finish_time[i] = current_time;
             completed++;
+            finish_time[idx] = end;
         }
     }
 
-    
-    double total_waiting_time = 0;
+    // Calculate total turnaround time (from first arrival to last finish)
+    int last_finish = 0;
     for (int i = 0; i < count; i++) {
-        int wait = finish_time[i] - processes[i].arrival_time - processes[i].burst_time;
-        total_waiting_time += wait;
+        if (finish_time[i] > last_finish)
+            last_finish = finish_time[i];
     }
-
-    print_turnaround_summary(current_time);
+    print_turnaround_summary((double)last_finish);
     printf("\n");
-}
 
+}
 
 
 void runCPUScheduler(char* processesCsvFilePath, int timeQuantum) {
