@@ -1,446 +1,470 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
-#include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/types.h>
-#include <errno.h>
-#include <limits.h>
-
+#include <unistd.h>
 #include <sys/wait.h>
 
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-typedef struct {
+typedef struct process {
     char name[50];
-    char desc[100];
-    int arrival_time;
-    int burst_time;
+    char description[100];
+    int arrivalTime;
+    int burstTime;
     int priority;
-    pid_t pid; 
-    int remaining_time; 
-}Process;
-
-typedef struct {
-    int index;
-    int arrival_order;
-} QueueItem;
+    int pid;
+} process;
 
 
-typedef struct {
-    QueueItem items[1000];
-    int front, rear, count;
-}Queue;
+typedef struct queue {
+    process* processes[1000];
+    int count;
+} queue;
 
-void enqueue(Queue *q, int index) {
-    q->items[q->rear++] = (QueueItem){index};
-}
 
-int dequeue(Queue *q) {
-    return q->items[q->front++].index;
-}
-
-int is_empty(Queue *q) {
-    return q->front == q->rear;
+void processHandler(int signum)
+{
+    if (signum == SIGTERM)
+    {
+        exit(0);
+    }
 }
 
 void ignoreSignal(int signum){
     signal(signum, ignoreSignal);
 }
 
+process* popQueue(queue* processQueue);
+process* topQueue(queue *processQueue);
+int pushQueue(queue* processQueue, process* newProcess);
+int isProcessInQueue(queue* processQueue, process* targetProcess);
+int updateQueue(queue* processQueue, process processes[], int processCount, int currentTime);
+int checkIfAllProcessesCompleted(process processes[], int processCount);
+void initializeAllProcesses(process processes[], int processCount);
+void resetProcesses(process processes[], process originalProcesses[], int processCount);
+void roundRobin(process processes[], int processCount, int timeQuantum);
+void sortProcesses(int flag, process processes[], int processCount);
+void printModeMessage(int flag);
+void printSummary(int timeUnits, double averageWaitingTime, int flag);
+void printLine(const char* line);
+int AllButRoundRobin(process processes[], int processCount, int flag);
+int getNextProcessIndex(process processes[], int processCount, int currentTime, int flag);
 
-void print_schedule_header(const char *algorithm){
-    printf("══════════════════════════════════════════════\n");
-    printf(">> Scheduler Mode : %s\n", algorithm);
-    printf(">> Engine Status  : Initialized\n");
-    printf("──────────────────────────────────────────────\n\n");
-}
-
-
-void print_schedule_entry(int start, int end, const Process *p){
-    if (p) {
-        printf("%d → %d: %s Running %s.\n", start, end, p->name, p->desc);
-    } else {
-        printf("%d → %d: Idle.\n", start, end);
+void runCPUScheduler(char* processesCsvFilePath, int timeQuantum)
+{
+    FILE *file = fopen(processesCsvFilePath, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
     }
-}
-void print_summary(double avg_waiting_time){
-    printf("\n──────────────────────────────────────────────\n");
-    printf(">> Engine Status  : Completed\n");
-    printf(">> Summary        :\n");
-    printf("   └─ Average Waiting Time : %.2f time units\n", avg_waiting_time);
-    printf(">> End of Report\n");
-    printf("══════════════════════════════════════════════\n");
-}
-void print_turnaround_summary(double total_time) {
-    printf("\n──────────────────────────────────────────────\n");
-    printf(">> Engine Status  : Completed\n");
-    printf(">> Summary        :\n");
-    printf("   └─ Total Turnaround Time : %.0f time units\n\n", total_time);
-    printf(">> End of Report\n");
-    printf("══════════════════════════════════════════════");
-}
-
-
-
-// Reads the CSV file and convert it into an array of Process structs.
-int load_processes(const char *filename, Process processes[]){
-    // Try to open the file for reading if can't prints error.
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        perror("fopen"); 
-        return -1;
-    }
-    
     char line[256];
-    int count = 0; 
-
-    // Loop to read each line of file.
-    while (fgets(line, sizeof(line), file)) {
-
-         if (strlen(line) < 3) continue; //If line too short (like Nadav) ignores.
-
-         // Process name
-        char *token = strtok(line, ",");
-        if (!token) continue;  // If token is missing, skip the line
-        strncpy(processes[count].name, token, sizeof(processes[count].name));
-
-        // Description
-        token = strtok(NULL, ",");
-        if (!token) continue;
-        strncpy(processes[count].desc, token, sizeof(processes[count].desc));
-
-        // Arrival time
-        token = strtok(NULL, ",");
-        if (!token) continue;
-        processes[count].arrival_time = atoi(token); // Needs to be int.
-
-        // Burst time
-        token = strtok(NULL, ",");
-        if (!token) continue;
-        processes[count].burst_time = atoi(token);
-        processes[count].remaining_time = processes[count].burst_time;
-
-        // Priority value
-        token = strtok(NULL, ",");
-        if (!token) continue;
-        processes[count].priority = atoi(token);
-
-         count++;
-    }
+    int processCount = 0;
+    process processes[1000];
     
+    while (fgets(line, sizeof(line), file) && processCount < 1000)
+    {
+        line[strcspn(line, "\n")] = '\0';
+        
+        // Skip empty lines
+        if (strlen(line) == 0) {
+            continue;
+        }
+        
+        // Skip comment lines (lines starting with #)
+        if (line[0] == '#') {
+            continue;
+        }
+        
+        processes[processCount].pid = -1; // Initialize PID to -1
+        sscanf(line, "%49[^,],%99[^,],%d,%d,%d", 
+                    processes[processCount].name,
+                    processes[processCount].description,
+                    &processes[processCount].arrivalTime,
+                    &processes[processCount].burstTime,
+                    &processes[processCount].priority);
+        
+        processCount++;
+    }
     fclose(file);
-
-    return count; // Returns number of Processes.
-}
-
-void simulate_run(Process *p, int duration){
-    pid_t pid = fork();
-
-    if (pid == 0) {
-        signal(SIGCONT, SIG_DFL);
-        signal(SIGTSTP, SIG_DFL);
-        signal(SIGTERM, SIG_DFL);
-        pause();  // Start paused
-        // (1) {}  // Infinite loop simulating "running"
+    if (processCount == 0) {
+        printf("No processes found in the file.\n");
+        return;
     }
-    else if (pid > 0) {
-        p->pid = pid;
-        kill(pid, SIGSTOP);  // Immediately stop the child until scheduled
-    } else {
-        perror("fork");
+    process originalProcesses[1000];
+    for (int i = 0; i < processCount; i++)
+    {
+        originalProcesses[i] = processes[i];
     }
-}
-
-
-// For sorting the Processes.
-int cmp_arrival(const void *a, const void *b) {
-    Process *p1 = (Process *)a;
-    Process *p2 = (Process *)b;
-    return p1->arrival_time - p2->arrival_time;
-}
-
-// FCFS scheduling simulation.
-void schedule_fcfs(Process processes[], int count){
-
-    print_schedule_header("FCFS");
-
-    // Sort the processes by arrival time.
-    qsort(processes, count, sizeof(Process), cmp_arrival);
-
-    int current_time = 0;
-    double total_waiting_time = 0;
-
-    for (int i = 0; i < count; i++) {
-        Process *p = &processes[i];
-        
-        // If the current time is before the process arival we insert an idle period.
-        if (current_time < p->arrival_time) {
-            print_schedule_entry(current_time, p->arrival_time, NULL);  
-            current_time = p->arrival_time;
-        }
-
-        // Start and end time of the process.
-        int start_time = current_time;
-        int end_time = start_time + p->burst_time;
-
-        // Calclating the waiting time.
-        int waiting_time = start_time - p->arrival_time;
-        total_waiting_time += waiting_time;
-
-        print_schedule_entry(start_time, end_time, p);
-
-        simulate_run(p, p->burst_time);
-
-        // Update the current time.
-        current_time = end_time;
+    for(int i = 0; i < 3; i++)
+    {
+        AllButRoundRobin(processes, processCount, i);
+        resetProcesses(processes, originalProcesses, processCount);
     }
-
-    // Calculate and print the avg waiting time.
-    double avg_waiting_time = total_waiting_time / count;
-    print_summary(avg_waiting_time);
-    printf("\n");
+    resetProcesses(processes, originalProcesses, processCount);
+    roundRobin(processes, processCount, timeQuantum);
 }
 
-// SJF scheduling simulation.
-void schedule_sjf(Process processes[], int count){
-
-    print_schedule_header("SJF");
-
-    int current_time = 0;
-    double total_waiting_time = 0;
-    int completed = 0;
-    int done[1000] = {0};
-
-    // Loop over all the processes.
-    while (completed < count) {
-
-        int shortest_index = -1;
-
-        // Find the shortest job that has already arrived and is not done.
-        for (int i = 0; i < count; i++) {
-            if (!done[i] && processes[i].arrival_time <= current_time) {
-                if (shortest_index == -1 || 
-                    processes[i].burst_time < processes[shortest_index].burst_time || 
-                    (processes[i].burst_time == processes[shortest_index].burst_time &&
-                    processes[i].arrival_time < processes[shortest_index].arrival_time)) {
-                    shortest_index = i;
-}
+int AllButRoundRobin(process processes[], int processCount, int flag)
+{
+    char buffer[256];
+    int startTime = 0;
+    int endTime = 0;
+    int nextIndex = 0;
+    int waitingTime = 0;
+    initializeAllProcesses(processes, processCount);
+    sortProcesses(flag, processes, processCount);
+    printModeMessage(flag);
+    signal(SIGALRM, ignoreSignal);
+    for (int i = 0; i < processCount; i++)
+    {
+        nextIndex = getNextProcessIndex(processes, processCount, endTime, flag);
+        if(nextIndex == -1)
+        {
+            while(nextIndex == -1)
+            {
+                endTime++;
+                alarm(1);
+                pause();
+                nextIndex = getNextProcessIndex(processes, processCount, endTime, flag);
             }
+            snprintf(buffer, sizeof(buffer), "%d → %d: Idle.\n", startTime, endTime);
+            printLine(buffer);
+            startTime = endTime;
         }
-
-        // If no process had arrived yet.
-        if (shortest_index == -1) {
-            int next_arrival = INT_MAX;
-            // Looking for the process that is the most soon to arrive and isn't done or arrived yet.
-            for (int i = 0; i < count; i++) {
-                if (!done[i] && processes[i].arrival_time > current_time) {
-                    next_arrival = MIN(next_arrival, processes[i].arrival_time);
-                }
-            }
-            print_schedule_entry(current_time, next_arrival, NULL);
-            // Update the time for the next process.
-            current_time = next_arrival;
-        }
-        else {
-            // We got a process to run.
-            Process *p = &processes[shortest_index];
-
-            int start_time = current_time;
-            int end_time = start_time + p->burst_time;
-
-            int waiting_time = start_time - p->arrival_time;
-            total_waiting_time += waiting_time;
-
-            print_schedule_entry(start_time, end_time, p);
-            simulate_run(p, p->burst_time);
-
-            current_time = end_time;
-            done[shortest_index] = 1; // Makr process as done.
-            completed++;
-        }
+        waitingTime += startTime - processes[nextIndex].arrivalTime;
+        endTime = startTime + processes[nextIndex].burstTime;
+        kill(SIGCONT, processes[nextIndex].pid);
+        alarm(processes[nextIndex].burstTime);
+        pause();
+        kill(processes[nextIndex].pid, SIGTERM);
+        wait(NULL);
+        snprintf(buffer, sizeof(buffer), "%d → %d: %s Running %s.\n", startTime, endTime, 
+                processes[nextIndex].name, processes[nextIndex].description);
+        printLine(buffer);
+        startTime = endTime;
+        processes[nextIndex].pid = -1; // Reset PID after completion
     }
-    // Calculate and print avg waiting time.
-    double avg_waiting_time = total_waiting_time / count;
-    print_summary(avg_waiting_time);
-    printf("\n");
-}
-
-// Priority scheduling simulation.
-void schedule_priority(Process processes[], int count){
-
-    print_schedule_header("Priority");
-
-    int current_time = 0;                
-    double total_waiting_time = 0;     
-    int completed = 0;                  
-    int done[1000] = {0};    
-
-    // Loop over all the processes.
-    while (completed < count) {
-        int best_index = -1;
-
-        // Find the highest priority process that has arrived and is not done.
-        for (int i = 0; i < count; i++) {
-            if (!done[i] && processes[i].arrival_time <= current_time) {
-                if (best_index == -1 || processes[i].priority < processes[best_index].priority) {
-                    best_index = i;  
-                }
-            }
-        }
-        
-        // If not process is ready yet.
-        if (best_index == -1) {
-            int next_arrival = INT_MAX;
-
-            // Looking for the closest arrival among the unfinished processes.
-            for (int i = 0; i < count; i++) {
-                if (!done[i] && processes[i].arrival_time > current_time) {
-                    next_arrival = MIN(next_arrival, processes[i].arrival_time);
-                }
-            }
-            print_schedule_entry(current_time, next_arrival, NULL);
-
-            // Update time to the next process.
-            current_time = next_arrival;
     
-        }
-        else {
-            Process *p = &processes[best_index];
-
-            int start_time = current_time;
-            int end_time = start_time + p->burst_time;
-
-            int waiting_time = start_time - p->arrival_time;
-            total_waiting_time += waiting_time;
-
-            print_schedule_entry(start_time, end_time, p);
-            simulate_run(p, p->burst_time);
-
-            current_time = end_time;
-            done[best_index] = 1; // Mark process as done.
-            completed++;
-        }
-    }
-
-    // Calculate and print avg waiting time.
-    double avg_waiting_time = total_waiting_time / count;
-    print_summary(avg_waiting_time);
-    printf("\n");
+    // Add summary print at the end
+    double averageWaitingTime = (double)waitingTime / processCount;
+    printSummary(0, averageWaitingTime, flag);
+    
+    return endTime;
 }
-// Round Robin scheduling simulation.
 
-void schedule_rr(Process processes[], int count, int quantum) {
-    print_schedule_header("Round Robin");
-
-    int time = 0;
-    int completed = 0;
-    int remaining[1000];
-    int arrived[1000] = {0};
-    int queue[1000], front = 0, rear = 0;
-    int finish_time[1000] = {0};
-
-    for (int i = 0; i < count; i++) {
-        remaining[i] = processes[i].burst_time;
-    }
-
-    // Enqueue all processes that have arrived at time 0
-    for (int i = 0; i < count; i++) {
-        if (processes[i].arrival_time == 0) {
-            queue[rear++] = i;
-            arrived[i] = 1;
-        }
-    }
-
-    while (completed < count) {
-        // If queue is empty, jump to next arrival
-        if (front == rear) {
-            int next_arrival_time = -1;
-            for (int i = 0; i < count; i++) {
-                if (!arrived[i]) {
-                    if (next_arrival_time == -1 || processes[i].arrival_time < next_arrival_time)
-                        next_arrival_time = processes[i].arrival_time;
+void roundRobin(process processes[], int processCount, int timeQuantum)
+{
+    char buffer[256];
+    int startTime = 0;
+    int endTime = 0;
+    int i = 0;
+    initializeAllProcesses(processes, processCount);
+    queue processQueue;
+    processQueue.count = 0;
+    updateQueue(&processQueue, processes, processCount, startTime);
+    printModeMessage(3);
+    process* nextProcess = NULL;
+    process* currentProcess = topQueue(&processQueue);
+    signal(SIGALRM, ignoreSignal);
+    while(checkIfAllProcessesCompleted(processes, processCount))
+    {
+        for(i = 0; i < timeQuantum; i++)
+        {
+            endTime++;
+            alarm(1);
+            pause();
+            if(currentProcess == NULL)
+            {
+                updateQueue(&processQueue, processes, processCount, endTime);
+                nextProcess = topQueue(&processQueue);
+                if(nextProcess != currentProcess)
+                {
+                    snprintf(buffer, sizeof(buffer), "%d → %d: Idle.\n", startTime, endTime);
+                    printLine(buffer);
+                    startTime = endTime;
+                    kill(nextProcess->pid, SIGCONT);
+                    break;
                 }
             }
-            if (next_arrival_time != -1 && next_arrival_time > time) {
-                print_schedule_entry(time, next_arrival_time, NULL);
-                time = next_arrival_time;
-                // Enqueue all processes that arrive at this time
-                for (int i = 0; i < count; i++) {
-                    if (!arrived[i] && processes[i].arrival_time == time) {
-                        queue[rear++] = i;
-                        arrived[i] = 1;
+            else
+            {
+                currentProcess->burstTime--;
+                if(currentProcess->burstTime == 0)
+                {
+                    snprintf(buffer, sizeof(buffer), "%d → %d: %s Running %s.\n", startTime, endTime, 
+                            currentProcess->name, currentProcess->description);
+                    printLine(buffer);
+                    startTime = endTime;
+                    kill(currentProcess->pid, SIGTERM);
+                    wait(NULL);
+                    currentProcess->pid = -1; // Reset PID after completion
+                    nextProcess = topQueue(&processQueue);
+                    popQueue(&processQueue);
+                    break;
+                }
+            }
+        }
+        if(i == timeQuantum)
+        {
+            if(currentProcess != NULL)
+            {
+                snprintf(buffer, sizeof(buffer), "%d → %d: %s Running %s.\n", startTime, endTime, 
+                        currentProcess->name, currentProcess->description);
+                printLine(buffer);
+                popQueue(&processQueue);
+                updateQueue(&processQueue, processes, processCount, endTime - 1);
+                updateQueue(&processQueue, processes, processCount, endTime);
+            }
+            else
+            {
+                snprintf(buffer, sizeof(buffer), "%d → %d: Idle.\n", startTime, endTime);
+                printLine(buffer);
+            }
+        }
+        else if(currentProcess != NULL)
+        {
+            if(currentProcess->burstTime > 0)
+            {
+                pushQueue(&processQueue, currentProcess);
+                kill(currentProcess->pid, SIGTSTP);
+            }
+        }
+        updateQueue(&processQueue, processes, processCount, endTime);
+        nextProcess = topQueue(&processQueue);
+        if(nextProcess != NULL)
+        {
+            kill(nextProcess->pid, SIGCONT);
+        }
+        startTime = endTime;
+        currentProcess = nextProcess;
+    }
+    
+    printSummary(endTime, 0, 4);
+}
+
+int getNextProcessIndex(process processes[], int processCount, int currentTime, int flag)
+{
+    for (int i = 0; i < processCount; i++)
+    {
+        if (processes[i].arrivalTime <= currentTime && processes[i].pid != -1)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void sortProcesses(int flag, process processes[], int processCount)
+{
+    int i, j;
+    int swapped;
+    for (i = 0; i < processCount - 1; i++)
+    {
+        swapped = 0;
+        for (j = 0; j < processCount - 1 - i; j++)
+        {
+            int shouldSwap = 0;
+            if (flag == 0)
+            {
+                if (processes[j].arrivalTime > processes[j+1].arrivalTime)
+                {
+                    shouldSwap = 1;
+                }
+            }
+            else if (flag == 1)
+            {
+                if (processes[j].burstTime > processes[j+1].burstTime)
+                {
+                    shouldSwap = 1;
+                }
+                else if (processes[j].burstTime == processes[j+1].burstTime)
+                {
+                    if (processes[j].arrivalTime > processes[j+1].arrivalTime)
+                    {
+                        shouldSwap = 1;
                     }
                 }
             }
-            continue;
-        }
+            else if (flag == 2)
+            {
+                if (processes[j].priority > processes[j+1].priority)
+                {
+                    shouldSwap = 1;
+                }
+                else if (processes[j].priority == processes[j+1].priority)
+                {
+                    if (processes[j].arrivalTime > processes[j+1].arrivalTime)
+                    {
+                        shouldSwap = 1;
+                    }
+                }
+            }
 
-        int idx = queue[front++];
-        Process *p = &processes[idx];
-
-        // If the process arrives after the current time, CPU should be idle
-        if (p->arrival_time > time) {
-            print_schedule_entry(time, p->arrival_time, NULL);
-            time = p->arrival_time;
-        }
-
-        int slice = (remaining[idx] < quantum) ? remaining[idx] : quantum;
-        int start = time;
-        int end = time + slice;
-
-        print_schedule_entry(start, end, p);
-
-        time = end;
-        remaining[idx] -= slice;
-
-        // Enqueue any new arrivals during this time slice, in arrival order
-        for (int i = 0; i < count; i++) {
-            if (!arrived[i] && processes[i].arrival_time > start && processes[i].arrival_time <= end) {
-                queue[rear++] = i;
-                arrived[i] = 1;
+            if (shouldSwap)
+            {
+                process temp = processes[j];
+                processes[j] = processes[j+1];
+                processes[j+1] = temp;
+                swapped = 1;
             }
         }
 
-        // Only after enqueuing new arrivals, re-queue the current process if not finished
-        if (remaining[idx] > 0) {
-            queue[rear++] = idx;
-        } else {
-            completed++;
-            finish_time[idx] = end;
-        }
+        // If no two elements were swapped by inner loop, then break
+        if (swapped == 0)
+            break;
     }
-
-    // Calculate total turnaround time (from first arrival to last finish)
-    int last_finish = 0;
-    for (int i = 0; i < count; i++) {
-        if (finish_time[i] > last_finish)
-            last_finish = finish_time[i];
+}
+void printModeMessage(int flag)
+{
+    printLine("══════════════════════════════════════════════\n");
+    if (flag == 0)
+    {
+        printLine(">> Scheduler Mode : FCFS\n");
     }
-    print_turnaround_summary((double)last_finish);
+    else if (flag == 1)
+    {
+        printLine(">> Scheduler Mode : SJF\n");
+    }
+    else if (flag == 2)
+    {
+        printLine(">> Scheduler Mode : Priority\n");
+    }
+    else if (flag == 3)
+    {
+        printLine(">> Scheduler Mode : Round Robin\n");
+    }
+    else
+    {
+        printLine(">> Scheduler Mode : Unknown\n");
+    }
+    printLine(">> Engine Status  : Initialized\n");
+    printLine("──────────────────────────────────────────────\n\n");
 }
 
+void printLine(const char* line) {
+    write(STDOUT_FILENO, line, strlen(line));
+}
 
-void runCPUScheduler(char* processesCsvFilePath, int timeQuantum) {
-
-    Process processes[1000];
-    //printf("Time Quantum: %d\n", timeQuantum);
-    int count = load_processes(processesCsvFilePath, processes);
-    if (count <= 0) {
-        fprintf(stderr, "Error: Failed to load processes from file: %s\n", processesCsvFilePath);
-        return;
+void printSummary(int timeUnits,double averageWaitingTime, int flag)
+{
+    char buffer[256];
+    printLine("\n──────────────────────────────────────────────\n");
+    printLine(">> Engine Status  : Completed\n");
+    printLine(">> Summary        :\n");
+    if(flag != 4)
+    {
+        snprintf(buffer, sizeof(buffer), "   └─ Average Waiting Time : %.2f time units\n", averageWaitingTime);
     }
+    else
+    {
+        snprintf(buffer, sizeof(buffer), "   └─ Total Turnaround Time : %d time units\n\n", timeUnits);
+    }
+    printLine(buffer);
+    printLine(">> End of Report\n");
+    printLine("══════════════════════════════════════════════\n");
+}
 
-    // Create copies of the processes for each scheduler.
-    Process fcfs_list[1000], sjf_list[1000], prio_list[1000], rr_list[1000];
-    memcpy(fcfs_list, processes, sizeof(Process) * count);
-    memcpy(sjf_list, processes, sizeof(Process) * count);
-    memcpy(prio_list, processes, sizeof(Process) * count);
-    memcpy(rr_list, processes, sizeof(Process) * count);
+process* popQueue(queue* processQueue)
+{
+    if (processQueue->count <= 0) {
+        return NULL;
+    }
+    process* topProcess = processQueue->processes[0];
+    for (int i = 0; i < processQueue->count - 1; i++) {
+        processQueue->processes[i] = processQueue->processes[i + 1];
+    }
+    
+    processQueue->count--;
+    return topProcess;
+}
 
-    // Run each scheduling simulation.
-    schedule_fcfs(fcfs_list, count);
-    schedule_sjf(sjf_list, count);
-    schedule_priority(prio_list, count);
-    schedule_rr(rr_list, count, timeQuantum);
+process* topQueue(queue *processQueue)
+{
+    if(processQueue->count <= 0) {
+        return NULL;
+    }
+    return processQueue->processes[0];
+}
+
+int pushQueue(queue* processQueue, process* newProcess)
+{
+    if (processQueue->count >= 1000) {
+        return -1;
+    }
+    
+    processQueue->processes[processQueue->count] = newProcess;
+    processQueue->count++;
+    return 0;
+}
+
+int isProcessInQueue(queue* processQueue, process* targetProcess)
+{
+    for (int i = 0; i < processQueue->count; i++) {
+        if (processQueue->processes[i] == targetProcess) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int updateQueue(queue* processQueue, process processes[], int processCount, int currentTime)
+{
+    if (processCount <= 0 || processCount > 1000) {
+        return -1;
+    }
+    
+    for (int i = 0; i < processCount && i < 1000; i++) 
+    {
+        if(processes[i].arrivalTime <= currentTime && 
+           processes[i].burstTime > 0 && 
+           !isProcessInQueue(processQueue, &processes[i])) // Check for duplicates
+        {
+            pushQueue(processQueue, &processes[i]);
+        }
+    }
+    return 0;
+}
+
+int checkIfAllProcessesCompleted(process processes[], int processCount)
+{
+    for (int i = 0; i < processCount; i++)
+    {
+        if (processes[i].burstTime > 0) // If any process still has burst time left
+        {
+            return 1; // Not all processes are completed
+        }
+    }
+    return 0; // All processes are completed
+}
+
+void initializeAllProcesses(process processes[], int processCount)
+{
+    for(int i = 0; i < processCount; i++)
+    {
+        int pid = fork();
+        if(pid < 0)
+        {
+            perror("Fork failed");
+            exit(EXIT_FAILURE);
+        }
+        else if(pid == 0)
+        {
+            pause();
+            while(1){}
+        }
+        else
+        {
+            processes[i].pid = pid; // Assign the PID to the process
+        }
+    }
+}
+
+void resetProcesses(process processes[], process originalProcesses[], int processCount)
+{
+    for(int i = 0; i < processCount; i++)
+    {
+        processes[i] = originalProcesses[i]; // Reset to original state
+        processes[i].pid = -1; // Reset PID to -1
+    }
 }
