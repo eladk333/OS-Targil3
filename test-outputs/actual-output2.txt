@@ -15,6 +15,7 @@
    └─ Average Waiting Time : 9.60 time units
 >> End of Report
 ══════════════════════════════════════════════
+
 ══════════════════════════════════════════════
 >> Scheduler Mode : SJF
 >> Engine Status  : Initialized
@@ -32,6 +33,7 @@
    └─ Average Waiting Time : 3.20 time units
 >> End of Report
 ══════════════════════════════════════════════
+
 ══════════════════════════════════════════════
 >> Scheduler Mode : Priority
 >> Engine Status  : Initialized
@@ -49,6 +51,7 @@
    └─ Average Waiting Time : 8.20 time units
 >> End of Report
 ══════════════════════════════════════════════
+
 ══════════════════════════════════════════════
 >> Scheduler Mode : Round Robin
 >> Engine Status  : Initialized
@@ -67,3 +70,4 @@
 
 >> End of Report
 ══════════════════════════════════════════════
+

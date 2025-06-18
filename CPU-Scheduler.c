@@ -241,6 +241,8 @@ void roundRobin(process processes[], int processCount, int timeQuantum)
     }
     
     printSummary(endTime, 0, 4);
+   
+
 }
 
 int getNextProcessIndex(process processes[], int processCount, int currentTime, int flag)
@@ -362,7 +364,7 @@ void printSummary(int timeUnits,double averageWaitingTime, int flag)
     }
     printLine(buffer);
     printLine(">> End of Report\n");
-    printLine("══════════════════════════════════════════════\n");
+    printLine("══════════════════════════════════════════════\n\n");
 }
 
 process* popQueue(queue* processQueue)
